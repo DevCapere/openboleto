@@ -1159,13 +1159,9 @@ abstract class BoletoAbstract
      */
     public function getLogoBancoBase64()
     {
-        static $logoData;
-
-        $logoData or $logoData = 'data:image/' . pathinfo($this->getLogoBanco(), PATHINFO_EXTENSION) .
+        return 'data:image/' . pathinfo($this->getLogoBanco(), PATHINFO_EXTENSION) .
             ';base64,' . base64_encode(file_get_contents($this->getResourcePath() .
                 '/images/' . $this->getLogoBanco()));
-
-        return $logoData;
     }
 
     /**
