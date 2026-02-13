@@ -94,13 +94,11 @@ class Safra extends BoletoAbstract
      */
     protected function gerarNossoNumero()
     {
-        // Cobrança Convencional = ZEROS
         if ($this->modalidadeCobranca == 1) {
             return '000000000';
         }
 
-        // Cobrança Direta = LIVRE (9 dígitos)
-        return self::zeroFill($this->getSequencial(), 9);
+        return str_pad((string)$this->getSequencial(), 9, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -137,7 +135,13 @@ class Safra extends BoletoAbstract
 
         for ($i = strlen($numero) - 1; $i >= 0; $i--) {
             $produto = intval($numero[$i]) * $multiplicador;
-            $soma += ($produto > 9) ? intval($produto / 10) + ($produto % 10) : $produto;
+
+            if ($produto > 9) {
+                $soma += intval($produto / 10) + ($produto % 10);
+            } else {
+                $soma += $produto;
+            }
+
             $multiplicador = ($multiplicador == 2) ? 1 : 2;
         }
 
@@ -163,15 +167,21 @@ class Safra extends BoletoAbstract
      */
     public function getCampoLivre()
     {
+        $sistema = '7';
+
         $agencia = str_pad((string) $this->getAgencia(), 5, '0', STR_PAD_RIGHT);
+
         $conta = str_pad((string) $this->getConta(), 8, '0', STR_PAD_LEFT);
-
         $contaDv = (string) ($this->getContaDV() ?? '0');
-        $nossoNumero = str_pad((string) $this->getSequencial(), 9, '0', STR_PAD_LEFT);
-        $carteira = (string) $this->getCarteira();
-        $zeroFixo = '0';
+        $contaCompleta = $conta . $contaDv;
 
-        return $agencia . $conta . $contaDv . $nossoNumero . $carteira . $zeroFixo;
+        $nossoNumero = str_pad((string) $this->getSequencial(), 9, '0', STR_PAD_LEFT);
+
+        $tipoCobranca = '2';
+
+        $campoLivre = $sistema . $agencia . $contaCompleta . $nossoNumero . $tipoCobranca;
+
+        return $campoLivre;
     }
 
     /**
@@ -199,48 +209,98 @@ class Safra extends BoletoAbstract
     {
         $campoLivre = $this->getCampoLivre();
 
-        // Quebrar campo livre em 3 blocos
-        $blocks = array(
-            '20-24' => substr($campoLivre, 0, 5),   // Agência (5)
-            '25-34' => substr($campoLivre, 5, 10),  // Conta (9) + 1 dígito
-            '35-44' => substr($campoLivre, 15, 10), // Nosso número (9) + carteira + zero
-        );
+        $sistema = substr($campoLivre, 0, 1);          // Pos 20: "7"
+        $agencia = substr($campoLivre, 1, 5);          // Pos 21-25: "19800"
+        $contaCompleta = substr($campoLivre, 6, 9);    // Pos 26-34: "005828372"
+        $nossoNumero = substr($campoLivre, 15, 9);     // Pos 35-43: "000015737"
+        $tipoCobranca = substr($campoLivre, 24, 1);    // Pos 44: "2"
 
         // ===== 1º CAMPO =====
-        // Posição 1-3: Banco (422)
-        // Posição 4: Moeda (9)
-        // Posição 5: Dígito Safra (7)
-        // Posição 6-9: 4 primeiros dígitos da agência (9800)
-        $agencia = $blocks['20-24'];
+        // Banco (422) + Moeda (9) + Sistema (7) + 4 primeiros dígitos da agência
         $agencia4primeiros = substr($agencia, 0, 4);
-        $agencia4primeiros = substr($agencia, 1, 4);
 
-        $part1_base = '4229' . '7' . $agencia4primeiros;
+        $part1_base = '4229' . $sistema . $agencia4primeiros;
         $dv1 = $this->modulo10Safra($part1_base);
 
         $part1 = '42297.' . $agencia4primeiros . $dv1;
 
         // ===== 2º CAMPO =====
-        $part2_base = $blocks['25-34'];
+        $part2_base = $contaCompleta;
         $dv2 = $this->modulo10Safra($part2_base);
-        $part2 = substr($part2_base, 0, 5) . '.' . substr($part2_base, 5, 5) . $dv2;
+
+        $part2_parte1 = "000" . substr($part2_base, 2, 3);
+        $part2_parte2 = substr($part2_base, 5, 3) . $part2_base[8] . $dv2;
+
+        $part2 = $part2_parte1 . '.' . $part2_parte2;
 
         // ===== 3º CAMPO =====
-        // Nosso número: 9 dígitos
-        $nossoNumero = substr($blocks['35-44'], 0, 9);
-        $tipoCobranca = '2'; // Cobrança Registrada
         $part3_base = $nossoNumero . $tipoCobranca;
         $dv3 = $this->modulo10Safra($part3_base);
 
-        $part3 = substr($part3_base, 0, 5) . '.' . substr($part3_base, 5, 5) . $dv3;
-
-        // ===== 4º CAMPO =====
-        $dvCodigoBarras = $this->calcularDigitoVerificadorCodigoBarras();
+        $part3 = substr($part3_base, 0, 3) . substr($part3_base, 3, 3) . '.' . substr($part3_base, 6, 4) . $dv3;
+        $dvCodigoBarras = $this->calcularDacCodigoBarras();
 
         // ===== 5º CAMPO =====
         $part5 = $this->getFatorVencimento() . $this->getValorZeroFill();
 
         return "$part1 $part2 $part3 $dvCodigoBarras $part5";
+    }
+
+    /**
+     * Método público para calcular DAC (usado na linha digitável)
+     * @return string
+     */
+    public function calcularDacCodigoBarras()
+    {
+        $codigoCompleto = $this->getCodigoBarras();
+        return substr($codigoCompleto, 4, 1);
+    }
+
+    /**
+     * CALCULA O CÓDIGO DE BARRAS COMPLETO (44 POSIÇÕES)
+     * @return string
+     */
+    public function getCodigoBarras()
+    {
+        $codigo = '422';
+        $codigo .= '9';
+        $codigo .= '0';
+        $codigo .= $this->getFatorVencimento();
+        $codigo .= $this->getValorZeroFill();
+        $codigo .= $this->getCampoLivre();
+        $dac = $this->calcularDacModulo11($codigo);
+        $codigo = substr($codigo, 0, 4) . $dac . substr($codigo, 5);
+
+        return $codigo;
+    }
+
+    /**
+     * CALCULA O DAC (DÍGITO DE AUTO CONFERÊNCIA) - MÓDULO 11
+     * @param string $codigo
+     * @return string
+     */
+    private function calcularDacModulo11($codigo)
+    {
+        $numero = substr($codigo, 0, 4) . substr($codigo, 5);
+
+        $multiplicador = 2;
+        $soma = 0;
+
+        for ($i = strlen($numero) - 1; $i >= 0; $i--) {
+            $soma += intval($numero[$i]) * $multiplicador;
+            $multiplicador++;
+            if ($multiplicador > 9) {
+                $multiplicador = 2;
+            }
+        }
+
+        $resto = $soma % 11;
+
+        if ($resto == 0 || $resto == 1 || $resto == 10) {
+            return '1';
+        }
+
+        return (11 - $resto);
     }
 
     /**
@@ -289,7 +349,7 @@ class Safra extends BoletoAbstract
     /**
      * Define o DV da conta
      *
-     * @param string $contaDv
+     * @param int $contaDv
      * @return $this
      */
     public function setContaDv($contaDv)
@@ -328,18 +388,12 @@ class Safra extends BoletoAbstract
      */
     public function setFatorVencimento(\DateTime $data)
     {
-        $dataBase = new \DateTime('1997-10-07');
-
-        // A partir de 22/02/2025, usar nova data base
-        $dataCorte = new \DateTime('2025-02-22');
-        if ($data >= $dataCorte) {
-            $dataBase = new \DateTime('2022-05-29');
-        }
+        $dataBase = new \DateTime('2022-05-29'); // Nova data base
 
         $diferenca = $dataBase->diff($data);
         $fator = $diferenca->days;
 
-        // Fator deve estar entre 1000 e 9999
+        // Ajustar para fator mínimo 1000
         if ($fator < 1000) {
             $fator += 1000;
         }
@@ -347,7 +401,7 @@ class Safra extends BoletoAbstract
             $fator = 1000 + ($fator % 1000);
         }
 
-        $this->fatorVencimento = self::zeroFill($fator, 4);
+        $this->fatorVencimento = str_pad($fator, 4, '0', STR_PAD_LEFT);
         return $this;
     }
 
