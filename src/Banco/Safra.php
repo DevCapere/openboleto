@@ -248,6 +248,7 @@ class Safra extends BoletoAbstract
 
     /**
      * Método público para calcular DAC (usado na linha digitável)
+     * @return string
      */
     public function calcularDacCodigoBarras()
     {
@@ -257,6 +258,7 @@ class Safra extends BoletoAbstract
 
     /**
      * CALCULA O CÓDIGO DE BARRAS COMPLETO (44 POSIÇÕES)
+     * @return string
      */
     public function getCodigoBarras()
     {
@@ -274,6 +276,8 @@ class Safra extends BoletoAbstract
 
     /**
      * CALCULA O DAC (DÍGITO DE AUTO CONFERÊNCIA) - MÓDULO 11
+     * @param string $codigo
+     * @return string
      */
     private function calcularDacModulo11($codigo)
     {
@@ -296,7 +300,7 @@ class Safra extends BoletoAbstract
             return '1';
         }
 
-        return (string) (11 - $resto);
+        return (11 - $resto);
     }
 
     /**
@@ -345,7 +349,7 @@ class Safra extends BoletoAbstract
     /**
      * Define o DV da conta
      *
-     * @param string $contaDv
+     * @param int $contaDv
      * @return $this
      */
     public function setContaDv($contaDv)
