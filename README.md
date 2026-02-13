@@ -1,3 +1,5 @@
+[![Pipeline](https://github.com/openboleto/openboleto/actions/workflows/ci.yml/badge.svg)](https://github.com/openboleto/openboleto/actions/workflows/ci.yml)
+
 # OpenBoleto
 
 O OpenBoleto é uma biblioteca de código aberto para geração de boletos bancários, um meio de pagamento muito comum no Brasil. O foco é ser simples e ter uma arquitetura compatível com os recursos mais modernos do PHP.
@@ -184,3 +186,4 @@ https://github.com/QuilhaSoft/OpenCnabPHP
 ## Licença
 
 - MIT License
+
