@@ -151,14 +151,17 @@ class Sicredi extends BoletoAbstract
      * @param string $numero Número base para cálculo
      * @return int Dígito verificador calculado
      */
-    protected function calcularDvModulo11(string $numero): int {
+    protected function calcularDvModulo11(string $numero): int
+    {
         $soma = 0;
         $peso = 2;
 
         for ($i = strlen($numero) - 1; $i >= 0; $i--) {
             $soma += (int)$numero[$i] * $peso;
             $peso++;
-            if ($peso > 9) $peso = 2;
+            if ($peso > 9) {
+                $peso = 2;
+            }
         }
 
         $resto = $soma % 11;
@@ -167,7 +170,9 @@ class Sicredi extends BoletoAbstract
             return 0;
         }
 
-        return 11 - $resto;
+        $digito = 11 - $resto;
+
+        return ($digito == 10 || $digito == 11) ? 0 : $digito;
     }
     /**
      * Método para gerar o código da posição de 20 a 44
@@ -188,7 +193,7 @@ class Sicredi extends BoletoAbstract
 
         $dv = $this->calcularDvModulo11($numero);
 
-        return $numero . $dv['digito'];
+        return $numero . $dv;
     }
 
     /**
