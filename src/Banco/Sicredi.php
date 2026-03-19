@@ -131,18 +131,39 @@ class Sicredi extends BoletoAbstract
     {
         $ano = date("y");
 
-        $numero = self::zeroFill($this->getAgencia(), 4) .
-            self::zeroFill($this->getPosto(), 2) .
-            self::zeroFill($this->getCodigoCliente(), 5) .
-            self::zeroFill($ano, 2) .
+        $baseCalculo = self::zeroFill($this->getAgencia(), 4) .
+                    self::zeroFill($this->getPosto(), 2) .
+                    self::zeroFill($this->getCodigoCliente(), 5) .
+                    self::zeroFill($ano, 2) .
+                    $this->bytecode .
+                    self::zeroFill($this->getSequencial(), 5);
+
+        $dv = $this->calcularDvModulo11($baseCalculo);
+
+        return self::zeroFill($ano, 2) . '/' .
             $this->bytecode .
-            self::zeroFill($this->getSequencial(), 5);
-
-        $dv = static::modulo11($numero);
-
-        return self::zeroFill($ano, 2) . '/' . $this->bytecode . self::zeroFill($this->getSequencial(), 5) . '-' . $dv['digito'];
+            self::zeroFill($this->getSequencial(), 5) .
+            '-' . $dv;
     }
 
+    protected function calcularDvModulo11($numero) {
+        $soma = 0;
+        $peso = 2;
+
+        for ($i = strlen($numero) - 1; $i >= 0; $i--) {
+            $soma += (int)$numero[$i] * $peso;
+            $peso++;
+            if ($peso > 9) $peso = 2;
+        }
+
+        $resto = $soma % 11;
+
+        if ($resto == 0 || $resto == 1) {
+            return 0;
+        }
+
+        return 11 - $resto;
+    }
     /**
      * Método para gerar o código da posição de 20 a 44
      *
@@ -160,7 +181,7 @@ class Sicredi extends BoletoAbstract
             '1' .
             '0';
 
-        $dv = static::modulo11($numero);
+        $dv = $this->calcularDvModulo11($numero);
 
         return $numero . $dv['digito'];
     }
