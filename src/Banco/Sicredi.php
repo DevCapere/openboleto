@@ -145,8 +145,13 @@ class Sicredi extends BoletoAbstract
             self::zeroFill($this->getSequencial(), 5) .
             '-' . $dv;
     }
-
-    protected function calcularDvModulo11($numero) {
+    /**
+     * Calcula dígito verificador módulo 11
+     *
+     * @param string $numero Número base para cálculo
+     * @return int Dígito verificador calculado
+     */
+    protected function calcularDvModulo11(string $numero): int {
         $soma = 0;
         $peso = 2;
 
@@ -170,7 +175,7 @@ class Sicredi extends BoletoAbstract
      * @return string
      * @throws \OpenBoleto\Exception
      */
-    public function getCampoLivre()
+    public function getCampoLivre(): string
     {
         $numero = $this->tipoCobranca .
             '1' .
